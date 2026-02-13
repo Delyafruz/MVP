@@ -13,9 +13,7 @@ Unity project implementing an interactive in-game computer terminal with realist
 
 ## 🎮 Controls
 
-- **WASD** - Movement
-- **Shift** - Run
-- **Space** - Jump  
+- **WASD** - Movemen  
 - **Mouse** - Look around
 - **E** - Use terminal
 - **Esc** - Exit terminal
