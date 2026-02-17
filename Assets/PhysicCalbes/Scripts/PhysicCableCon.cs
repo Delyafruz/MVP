@@ -38,6 +38,7 @@ namespace HPhysic
                     {
                         if (point != null)
                         {
+                            // Сохраняем оригинальные слои всех коллайдеров точек кабеля
                             foreach (Collider col in point.GetComponentsInChildren<Collider>())
                             {
                                 _cablePointsDefaultLayers.Add((col.gameObject, col.gameObject.layer));
