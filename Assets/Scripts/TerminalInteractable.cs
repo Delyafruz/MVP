@@ -7,6 +7,9 @@ public class TerminalInteractable : MonoBehaviour
     [Tooltip("Основная камера игрока")]
     public Camera mainCamera;
     
+    [Tooltip("Transform игрока (родительский объект камеры)")]
+    public Transform playerTransform;
+    
     [Tooltip("Позиция, куда камера переместится при работе с терминалом")]
     public Transform terminalCameraPosition;
     
@@ -30,19 +33,29 @@ public class TerminalInteractable : MonoBehaviour
     // Приватные переменные
     private Vector3 originalCameraPos;
     private Quaternion originalCameraRot;
+    private Vector3 originalPlayerPos;
+    private Quaternion originalPlayerRot;
     private bool isPlayerLooking = false;
     private bool isTransitioning = false;
     
     void Start()
     {
-        // Сохраняем исходную позицию камеры
+        // Получаем камеру
         if (mainCamera == null)
         {
             mainCamera = Camera.main;
         }
         
-        originalCameraPos = mainCamera.transform.position;
-        originalCameraRot = mainCamera.transform.rotation;
+        // Получаем игрока (родительский объект камеры)
+        if (playerTransform == null && mainCamera != null)
+        {
+            // Предполагаем, что камера - дочерний объект игрока
+            playerTransform = mainCamera.transform.parent;
+            if (playerTransform == null)
+            {
+                Debug.LogWarning("Player Transform не найден! Назначьте вручную.");
+            }
+        }
         
         // Проверка на ошибки
         if (terminalCameraPosition == null)
@@ -123,14 +136,23 @@ public class TerminalInteractable : MonoBehaviour
     {
         isTransitioning = true;
         
-        // Меняем состояние игрока
+        // ВАЖНО: Сохраняем текущую позицию ПЕРЕД переходом
+        if (playerTransform != null)
+        {
+            originalPlayerPos = playerTransform.position;
+            originalPlayerRot = playerTransform.rotation;
+        }
+        originalCameraPos = mainCamera.transform.position;
+        originalCameraRot = mainCamera.transform.rotation;
+        
+        // Меняем состояние игрока (это заблокирует движение)
         PlayerStateManager.Instance.SetState(PlayerState.TerminalFocus);
         
         float elapsed = 0f;
         Vector3 startPos = mainCamera.transform.position;
         Quaternion startRot = mainCamera.transform.rotation;
         
-        // Плавное перемещение
+        // Плавное перемещение камеры
         while (elapsed < 1f)
         {
             elapsed += Time.deltaTime * transitionSpeed;
@@ -163,14 +185,14 @@ public class TerminalInteractable : MonoBehaviour
     {
         isTransitioning = true;
         
-        // Меняем состояние обратно
+        // Меняем состояние обратно (это разблокирует движение)
         PlayerStateManager.Instance.SetState(PlayerState.Roaming);
         
         float elapsed = 0f;
         Vector3 startPos = mainCamera.transform.position;
         Quaternion startRot = mainCamera.transform.rotation;
         
-        // Плавное возвращение
+        // Плавное возвращение камеры
         while (elapsed < 1f)
         {
             elapsed += Time.deltaTime * transitionSpeed;
@@ -190,9 +212,16 @@ public class TerminalInteractable : MonoBehaviour
             yield return null;
         }
         
-        // Точно устанавливаем исходную позицию
+        // Точно устанавливаем исходную позицию камеры
         mainCamera.transform.position = originalCameraPos;
         mainCamera.transform.rotation = originalCameraRot;
+        
+        // Также восстанавливаем позицию игрока (если сохранили)
+        if (playerTransform != null)
+        {
+            playerTransform.position = originalPlayerPos;
+            playerTransform.rotation = originalPlayerRot;
+        }
         
         isTransitioning = false;
     }
