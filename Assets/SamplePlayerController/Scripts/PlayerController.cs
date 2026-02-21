@@ -18,7 +18,16 @@ namespace HPlayer
 
         private float yaw;
         private float pitch;
-
+        
+        [Header("Zoom")]
+        [SerializeField] private float zoomFOV = 20f;
+        [SerializeField] private float zoomSpeed = 8f;
+        private float originalFOV = 60f;
+        [SerializeField, ReadOnly] private bool inputZoom = false;
+        [SerializeField] private float minZoomFOV = 5f;
+        [SerializeField] private float zoomWheelSensitivity = 10f;
+        private float currentZoomFOV = 40f;
+        [SerializeField, Range(0.1f, 1f)] private float zoomMouseMultiplier = 0.5f;
         [field: SerializeField, ReadOnly] public bool FreezCamera { get; set; } = false;
 
         #endregion
@@ -98,6 +107,13 @@ namespace HPlayer
 
             yaw = transform.eulerAngles.y;
             pitch = playerCamera.transform.localEulerAngles.x;
+
+            // Сохраняем исходное FOV камеры
+            if (playerCamera != null)
+                originalFOV = playerCamera.fieldOfView;
+
+            // Инициализируем текущее значение зума
+            currentZoomFOV = zoomFOV;
 
             // Интеграция с PlayerStateManager (если существует)
             if (PlayerStateManager.Instance != null)
@@ -203,6 +219,17 @@ namespace HPlayer
             //Crouching controller
             inputCrouch = Input.GetKey(KeyCode.LeftControl);
 
+            // Zoom при нажатии Ctrl (левый или правый)
+            inputZoom = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+            // Регулировка зума колесом только когда удерживается Ctrl
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (inputZoom && Mathf.Abs(scroll) > Mathf.Epsilon)
+            {
+                // Скролл положительный -> уменьшаем FOV (увеличиваем приближение)
+                currentZoomFOV = Mathf.Clamp(currentZoomFOV - scroll * zoomWheelSensitivity, minZoomFOV, originalFOV);
+            }
+
             //jumping
             inputJump = Input.GetKey(KeyCode.Space);
         }
@@ -219,12 +246,21 @@ namespace HPlayer
             if (FreezCamera)
                 return;
 
-            yaw += inputMouse.x * mouseSensitivity;
-            pitch -= inputMouse.y * mouseSensitivity;
+            float effectiveMouseSensitivity = mouseSensitivity * (inputZoom ? zoomMouseMultiplier : 1f);
+
+            yaw += inputMouse.x * effectiveMouseSensitivity;
+            pitch -= inputMouse.y * effectiveMouseSensitivity;
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
             transform.eulerAngles = Vector3.up * yaw;
             playerCamera.transform.localEulerAngles = Vector3.right * pitch;
+
+            // Плавный переход FOV для зума
+            if (playerCamera != null)
+            {
+                float targetFOV = inputZoom ? currentZoomFOV : originalFOV;
+                playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, targetFOV, Time.deltaTime * zoomSpeed);
+            }
         }
 
         private void MovePlayer()
