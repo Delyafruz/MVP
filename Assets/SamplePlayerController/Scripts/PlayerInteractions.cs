@@ -15,7 +15,7 @@ namespace HPlayer
 
         [Header("Hold")]
         [SerializeField, Required] private Transform handTransform;
-        [SerializeField, Min(1)] private float holdingForce = 0.5f;
+        [SerializeField, Min(1)] private float holdingForce = 20f;
         [SerializeField] private int heldObjectLayer;
         [SerializeField] [Range(0f, 90f)] private float heldClamXRotation = 45f;
         [field: SerializeField, ReadOnly] public Liftable HeldObject { get; private set; } = null;
@@ -129,7 +129,7 @@ namespace HPlayer
             }
 
             Interactable foundInteractable = null;
-            if (Physics.SphereCast(playerCamera.position, 0.2f, playerCamera.forward, out RaycastHit hit, selectRange, selectLayer))
+            if (Physics.SphereCast(playerCamera.position, 0.05f, playerCamera.forward, out RaycastHit hit, selectRange, selectLayer))
                 foundInteractable = hit.collider.GetComponent<Interactable>();
 
             if (SelectedObject == foundInteractable)
@@ -157,7 +157,9 @@ namespace HPlayer
 
         private void UpdateHeldObjectPosition()
         {
-            HeldObject.Rigidbody.velocity = (handTransform.position - HeldObject.transform.position) * holdingForce;
+            Vector3 toHand = handTransform.position - HeldObject.transform.position;
+            // Добавляем демпфирование чтобы объект не болтался: скорость зависит от расстояния
+            HeldObject.Rigidbody.velocity = toHand * holdingForce - HeldObject.Rigidbody.velocity * 0.25f;
 
             Vector3 handRot = handTransform.rotation.eulerAngles;
             if (handRot.x > 180f)
@@ -171,6 +173,8 @@ namespace HPlayer
                 DropObject(HeldObject);
             else if (SelectedObject is Liftable liftable)
                 PickUpObject(liftable);
+            else if (SelectedObject != null)
+                SelectedObject.Interact(); // CablePinPoint и другие не-Liftable интерактивные объекты
         }
         private void PickUpObject(Liftable obj)
         {

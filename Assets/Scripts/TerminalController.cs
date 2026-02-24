@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Text;
+using AbaiLib;
 
 public class TerminalController : MonoBehaviour
 {
@@ -32,6 +33,7 @@ public class TerminalController : MonoBehaviour
     // Приватные переменные
     private StringBuilder currentLine;      // Текущая вводимая строка
     private StringBuilder allText;          // Весь текст терминала
+    private TerminalEmulator emulator;
     private bool showCaret = true;          // Показывать ли курсор
     private float caretTimer = 0f;          // Таймер для мигания
     private bool isActive = false;          // Активен ли терминал
@@ -52,6 +54,9 @@ public class TerminalController : MonoBehaviour
         
         // Настройка аудио
         SetupAudio();
+
+        // Инициализация эмулятора терминала
+        emulator = new TerminalEmulator();
         
         // Подписываемся на изменение состояния игрока
         PlayerStateManager.Instance.OnStateChanged += OnStateChanged;
@@ -120,6 +125,12 @@ public class TerminalController : MonoBehaviour
     // Обработка ввода с клавиатуры
     void HandleInput()
     {
+        // Вставка из буфера обмена (Ctrl+V)
+        if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.V))
+        {
+            PasteFromClipboard();
+            // не возвращаем — позволяем обрабатывать другие символы в этом кадре
+        }
         // Input.inputString содержит все символы, введённые за этот кадр
         foreach (char c in Input.inputString)
         {
@@ -136,6 +147,23 @@ public class TerminalController : MonoBehaviour
                 HandleCharacter(c);
             }
         }
+    }
+
+    // Вставить текст из системного буфера обмена
+    void PasteFromClipboard()
+    {
+        string clip = GUIUtility.systemCopyBuffer;
+        if (string.IsNullOrEmpty(clip))
+            return;
+
+        // Убираем возвраты каретки, заменяем переводы строк пробелом
+        clip = clip.Replace("\r", "").Replace("\n", " ");
+
+        currentLine.Append(clip);
+        UpdateDisplay();
+
+        // Проигрываем звук один раз (если назначен)
+        PlayTypingSound();
     }
     
     // Обработка обычного символа
@@ -201,40 +229,17 @@ public class TerminalController : MonoBehaviour
             // Пустая команда - ничего не делаем
             return;
         }
-        
-        string lowerCommand = command.ToLower();
-        
-        switch (lowerCommand)
+        // Передаём обработку эмулятору (взято из перенесённого Program.cs)
+        string output = emulator.HandleCommand(command);
+
+        if (!string.IsNullOrEmpty(output))
         {
-            case "help":
-                allText.AppendLine("Available commands:");
-                allText.AppendLine("  help   - Show this help message");
-                allText.AppendLine("  clear  - Clear the terminal");
-                allText.AppendLine("  hello  - Greet the user");
-                allText.AppendLine("  time   - Show current time");
-                allText.AppendLine("  exit   - Close terminal (use ESC)");
-                break;
-                
-            case "clear":
-                allText.Clear();
-                break;
-                
-            case "hello":
-                allText.AppendLine("Hello, User! Welcome to the terminal.");
-                break;
-                
-            case "time":
-                allText.AppendLine("Current time: " + System.DateTime.Now.ToString("HH:mm:ss"));
-                break;
-                
-            case "exit":
-                allText.AppendLine("Use ESC key to exit terminal.");
-                break;
-                
-            default:
-                allText.AppendLine($"Unknown command: {command}");
-                allText.AppendLine("Type 'help' for available commands.");
-                break;
+            // Разбиваем по строкам и добавляем в терминал
+            var lines = output.Split('\n');
+            foreach (var l in lines)
+            {
+                allText.AppendLine(l.TrimEnd('\r'));
+            }
         }
     }
     

@@ -165,6 +165,10 @@ namespace HPhysic
         }
 
 
+        [Header("Pin Settings")]
+        [SerializeField] private bool enablePinning = true;
+        [SerializeField] private string pinLayerName = "Interactable"; // слой на который будут переведены точки для выбора игроком
+
         private void Start()
         {
             startConnector = start.GetComponent<Connector>();
@@ -202,6 +206,34 @@ namespace HPhysic
                 connectors.Add(endConn);
 
             points.Add(end.transform);
+
+            // Добавляем CablePinPoint на все внутренние точки (не на коннекторы start/end)
+            if (enablePinning)
+                SetupPinPoints();
+        }
+
+        private void SetupPinPoints()
+        {
+            int pinLayer = LayerMask.NameToLayer(pinLayerName);
+
+            // points[0] = start connector, points[last] = end connector — пропускаем их
+            for (int i = 1; i < points.Count - 1; i++)
+            {
+                Transform point = points[i];
+                if (point == null)
+                    continue;
+
+                // Добавляем CablePinPoint если ещё нет
+                if (point.GetComponent<CablePinPoint>() == null)
+                    point.gameObject.AddComponent<CablePinPoint>();
+
+                // Переводим на нужный слой для выбора игроком
+                if (pinLayer >= 0)
+                {
+                    foreach (Collider col in point.GetComponentsInChildren<Collider>())
+                        col.gameObject.layer = pinLayer;
+                }
+            }
         }
 
         private void Update()
