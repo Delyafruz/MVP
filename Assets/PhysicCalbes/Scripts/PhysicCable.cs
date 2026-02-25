@@ -15,6 +15,7 @@ namespace HPhysic
         [SerializeField, Min(1f)] private float springForce = 200;
         [SerializeField, Min(1f)] private float brakeLengthMultiplier = 2f;
         [SerializeField, Min(0.1f)] private float minBrakeTime = 1f;
+        [SerializeField] private CollisionDetectionMode collisionDetection = CollisionDetectionMode.Continuous;
         private float brakeLength;
         private float timeToBrake = 1f;
 
@@ -207,6 +208,13 @@ namespace HPhysic
 
             points.Add(end.transform);
 
+            // Применяем режим обнаружения коллизий ко всем точкам кабеля
+            foreach (Transform pt in points)
+            {
+                if (pt != null)
+                    ConfigureRigidbody(pt.GetComponent<Rigidbody>());
+            }
+
             // Добавляем CablePinPoint на все внутренние точки (не на коннекторы start/end)
             if (enablePinning)
                 SetupPinPoints();
@@ -303,11 +311,18 @@ namespace HPhysic
             spring.minDistance = space;
             spring.maxDistance = space;
         }
+
+        private void ConfigureRigidbody(Rigidbody rb)
+        {
+            if (rb == null) return;
+            rb.collisionDetectionMode = collisionDetection;
+        }
         private GameObject CreateNewPoint(int index)
         {
             GameObject temp = Instantiate(point0);
             temp.name = PointName(index);
             temp.transform.parent = transform;
+            ConfigureRigidbody(temp.GetComponent<Rigidbody>());
             return temp;
         }
         private GameObject CreateNewCon(int index)
